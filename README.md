@@ -13,8 +13,8 @@ Type "-h" to show help and available options.
 ## Y86 Assembler
 The Python Y86 assember behaves like the *CSAPP* official **"yas"** assembler, which can generate two kinds of Y86 object file, *ASCII object* and *binary object* in the same folder of ".ys" assembly source.
 
-The **ASCII object** '*.yo*' file is **fully compatible** with the *CSAPP* official "yis" or "psim" simulator and friendly to read.    
-The **binary object** '*.ybo*' file is generated for the pipelined simulator to execute.
+The **ASCII object** ".yo" file is **fully compatible** with the *CSAPP* official "yis" or "psim" simulator and friendly to read.    
+The **binary object** ".ybo" file is generated for the pipelined simulator to execute.
 
 ### Features:
 - Support **all instructions** of Y86 ISA including "iaddl", "leave" and "cmovXX"
