@@ -1,14 +1,32 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python
+#
+#    Python Pipelined Y86 Simulator
+#    Copyright (c) 2012 Linus Yang <laokongzi@gmail.com>
+#
+#    ** Compatible with Shedskin **
+#    Shedskin is an RPython to C++ compiler
+#    Visit https://code.google.com/p/shedskin/wiki/docs for more info
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
 
-# Python Pipelined Y86 Simulator
-# By Linus Yang <laokongzi@gmail.com>
-# Licensed under Creative Commons BY-NC-SA 3.0
-# Some Rights Reserved (c) 2012
-
-from optparse import OptionParser
+import getopt
 import binascii
 import os
+import sys
+
+__ver__ = '0.1.3'
 
 # Signals
 INOP = 0x0
@@ -239,6 +257,7 @@ def getCCStr():
             (condcode['ZF'], condcode['SF'], condcode['OF'])
     
 def endianInt(s):
+    x = 0
     if isBigEndian:
         x = int(s, 16)
     else:
@@ -692,45 +711,73 @@ def showStat():
     simLog('W: instr = %s, valE = 0x%s, valM = 0x%s, dstE = %s, dstM = %s, Stat = %s' % \
            (getInstrName(W_icode, W_ifun), myHex(W_valE), myHex(W_valM), getRegName(W_dstE), \
             getRegName(W_dstM), W_stat))
+
+def showUsage():
+    print('''Usage: %s [options] [y86 binary object]
+
+Options:
+  -h, --help            show this help message and exit
+  -b, --bigendian       detect binary as big-endian. (default is little-
+                        endian)
+  -s, --second          use decoding rules in csapp 2nd edition. (default
+                        using 1st editon rules)
+  -m MAXCYCLE, --maxcycle=MAXCYCLE
+                        set limit of running cycles. 0 means no limit.
+                        (default is 32767)
+  -g, --guimode         set log output syntax for GUI. (default is disabled)
+  -n, --nologfile       print log to stdout instead of writing to file.
+                        (default is disabled)
+''' % os.path.basename(sys.argv[0]))
+    sys.exit(1)
     
 def main():
-    print '[Pipelined Y86 Simulator - 0.1.2 - Linus Yang]'
-    parser = OptionParser('Usage: %prog [options] [y86 binary object]')
-    parser.add_option("-b", "--bigendian", action="store_true", dest="bigendian", default=False, \
-                      help="detect binary as big-endian. (default is little-endian)")
-    parser.add_option("-s", "--second", action="store_true", dest="second", default=False, \
-                      help="use decoding rules in csapp 2nd edition. (default using 1st editon rules)")
-    parser.add_option("-m", "--maxcycle", dest="maxcycle", default=32767, \
-                      help="set limit of running cycles. 0 means no limit. (default is 32767)")
-    parser.add_option("-g", "--guimode", action="store_true", dest="guimode", default=False, \
-                      help="set log output syntax for GUI. (default is disabled)")
-    parser.add_option("-n", "--nologfile", action="store_true", dest="nologfile", default=False, \
-                      help="print log to stdout instead of writing to file. (default is disabled)")
-    (options, args) = parser.parse_args()
+    print('Pipelined Y86 Simulator %s\nCopyright (c) 2012 Linus Yang\n' % __ver__)
     global isBigEndian
     global isSecond
     global logfile
     global isGuimode
     global isNoLogFile
-    isBigEndian = options.bigendian
-    isSecond = options.second
-    isGuimode = options.guimode
-    isNoLogFile = options.nologfile
-    maxcycle = options.maxcycle
-    if maxcycle < 0:
-        maxcycle = 0
-    inputName = 'prog.ybo'
-    if args != []:
-        inputName = args[0]
+    isBigEndian = False
+    isSecond = False
+    isGuimode = False
+    isNoLogFile = False
+    maxcycle = 32767
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'bsm:gnh', \
+                ['bigendian', 'second', 'maxcycle', 'guimode', 'nologfile', 'help'])
+        if len(opts) == 0 and len(args) != 1:
+            if len(args) == 0:
+                print("Error: missing input file")
+            else:
+                print("Error: only one input file allowed")
+            showUsage()
+        for o, a in opts:
+            if o in ("-b", "--bigendian"):
+                isBigEndian = True
+            if o in ("-s", "--second"):
+                isSecond = True
+                print('Warning: using csapp 2nd edition rules')
+            if o in ("-m", "--maxcycle="):
+                try:
+                    maxcycle = int(a)
+                except ValueError:
+                    print('Error: invalied cycle number')
+                    sys.exit(1)
+            if o in ("-g", "--guimode"):
+                isGuimode = True
+            if o in ("-n", "--nologfile"):
+                isNoLogFile = True
+            if o in ('-h', '--help'):
+                showUsage()
+    except getopt.GetoptError:
+        print("Error: illegal option")
+        showUsage()
+    inputName = args[0]
     try:
         fin = open(inputName, 'rb')
     except:
-        print '[Error] Cannot open binary: %s.' % (inputName)
-        return
-    if isBigEndian:
-        print '[Warning] Using big-endian.'
-    if isSecond:
-        print '[Warning] Using csapp 2nd edition rules.' 
+        print('Error: cannot open binary: %s' % inputName)
+        sys.exit(1)
     if isNoLogFile:
         logfile = None
     else:
@@ -738,20 +785,24 @@ def main():
         outputName = prefixName + '.log'
         try:
             logfile = open(outputName, 'w')
-        except:
-            print '[Warning] Cannot create log file. Using stdout as output.'
-    simLog('Pipelined Y86 Simulator - Linus Yang')
-    simLog('Y86 Object: %s' % (inputName), True)
+        except IOError:
+            print('Warning: cannot create log file')
+    simLog('Pipelined Y86 Simulator %s\nCopyright (c) 2012 Linus Yang\n' % __ver__)
+    simLog('Y86 Object: %s' % (inputName))
     if not isNoLogFile:
-        print 'Output Log: %s' % (outputName)
+        print('Log file: %s' % (outputName))
     global yasbin
     global binlen
     global addrlen
     try:
         yasbin = binascii.b2a_hex(fin.read())
     except:
-        print '[Error] Cannot detect binary: %s.' % (inputName)
-        return
+        print('Error: cannot identify binary: %s' % (inputName))
+        sys.exit(1)
+    try:
+        fin.close()
+    except IOError:
+        pass
     binlen = len(yasbin) / 2
     simLog('%d bytes of code read' % (binlen))
     addrlen = len("%x" % (binlen))
@@ -762,26 +813,30 @@ def main():
     
     global cycle
     global cpustat
-    while True:
-        showStatTitle()
-        writeW()
-        stageW()
-        writeM()
-        stageM()
-        writeE()
-        stageE()
-        writeD()
-        stageD()
-        writeF()
-        stageF()
-        if maxcycle != 0 and cycle > maxcycle:
-            simLog('Reach Max Cycle', True)
-            cpustat = 'HLT'
-        if cpustat != 'AOK' and cpustat != 'BUB':
+    try:
+        while True:
+            showStatTitle()
+            writeW()
+            stageW()
+            writeM()
+            stageM()
+            writeE()
+            stageE()
+            writeD()
+            stageD()
+            writeF()
+            stageF()
+            if maxcycle != 0 and cycle > maxcycle:
+                simLog('Reach Max Cycle', True)
+                cpustat = 'HLT'
+            if cpustat != 'AOK' and cpustat != 'BUB':
+                showStat()
+                break
             showStat()
-            break
-        showStat()
-        cycle += 1    
+            cycle += 1
+    except:
+        print('Error: bad input binary file')
+        sys.exit(1)
     simLog('\n%d instructions executed\nStatus = %s' % \
            (cycle + 1, cpustat), True)
     simLog('Condition Codes: %s' % (getCCStr()), True)
@@ -794,7 +849,11 @@ def main():
         if memaddr not in memro and memory[memaddr] != 0:
             simLog('0x%s:\t0x%s' % (myHex(memaddr, addrlen), myHex(memory[memaddr], 8)), True)
     if logfile != None:
-        logfile.close()
+        try:        
+            logfile.close()
+        except IOError:
+            pass
+    print('Simulation finished')
      
 if __name__ == '__main__':
     main()
